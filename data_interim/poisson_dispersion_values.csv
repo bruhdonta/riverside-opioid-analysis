@@ -1,0 +1,4 @@
+model,dispersion,model_type
+ED Poisson,NA,"Poisson (robust SE, saturated)"
+Hosp Poisson,NA,"Poisson (robust SE, saturated)"
+Death Poisson,NA,"Poisson (robust SE, saturated)"

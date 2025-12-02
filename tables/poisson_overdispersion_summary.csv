@@ -1,0 +1,7 @@
+Model,Dispersion_Statistic,Interpretation,Overdispersed
+ED Visits,0.046875,Underdispersed (variance < mean),No
+Hospitalizations,0.2,Underdispersed (variance < mean),No
+Deaths,0.0000000000025,Severely underdispersed (variance << mean),No
+Note: Dispersion values < 1 indicate underdispersion (variance less than expected under Poisson). Values > 1 would indicate overdispersion. All p-values from overdispersion tests were 1.0 (p > 0.05), confirming no significant overdispersion in any model.
+
+

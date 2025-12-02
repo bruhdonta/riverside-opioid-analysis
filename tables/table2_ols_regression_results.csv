@@ -1,0 +1,17 @@
+Model,Predictor,Coefficient,Std_Error,t_statistic,p_value,Significance,Interpretation
+Composite Severity,economic_domain,-0.1858,0.0411,-4.516,3.29e-05,***,One SD increase associated with 0.186 decrease in severity score
+Composite Severity,social_domain,0.0764,0.0411,1.858,0.0684,,Not significant (borderline)
+ED Visits,above_poverty,-3.6662,0.7283,-5.034,5.31e-06,***,One SD increase associated with 3.67 decrease in ED coefficient
+ED Visits,social_domain,3.0362,0.7283,4.169,1.07e-04,***,One SD increase associated with 3.04 increase in ED coefficient
+Hospitalizations,economic_domain,-9.6171,2.7474,-3.500,9.74e-04,**,One SD increase associated with 9.62 decrease in hospitalization coefficient
+Hospitalizations,social_domain,5.6148,1.7481,3.212,0.0023,**,One SD increase associated with 5.61 increase in hospitalization coefficient
+Hospitalizations,education_domain,3.4187,0.9633,3.549,8.41e-04,**,One SD increase associated with 3.42 increase in hospitalization coefficient
+Hospitalizations,neighborhood_domain,3.4784,0.9640,3.608,7.02e-04,**,One SD increase associated with 3.48 increase in hospitalization coefficient
+Hospitalizations,healthcare_access,-4.4572,1.7030,-2.617,0.0116,*,One SD increase associated with 4.46 decrease in hospitalization coefficient
+Hospitalizations,ownsevere,2.3055,0.9857,2.339,0.0233,*,One SD increase associated with 2.31 increase in hospitalization coefficient
+Hospitalizations,above_poverty,7.6276,3.6325,2.100,0.0407,*,One SD increase associated with 7.63 increase in hospitalization coefficient
+Overdose Deaths,economic_domain,-0.4382,0.1233,-3.555,8.27e-04,**,One SD increase associated with 0.44 decrease in death coefficient
+Overdose Deaths,housing,0.3196,0.1409,2.268,0.0276,*,One SD increase associated with 0.32 increase in death coefficient
+Overdose Deaths,ownsevere,0.2204,0.1057,2.085,0.0421,*,One SD increase associated with 0.22 increase in death coefficient
+Note: *** p < 0.001, ** p < 0.01, * p < 0.05. All predictors were standardized before modeling. Healthcare access was not retained in the composite severity model (removed by stepAIC, indicating non-significance).
+
