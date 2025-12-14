@@ -19,7 +19,7 @@ zipify <- function(x) {
   stringr::str_pad(x, width = 5, pad = "0")
 }
 
-# Try negative binomial with multiple starting thetas; return NULL if all fail
+# Try negative binomial with multiple starting thetas; return NULL if all fail;
 safe_nb <- function(formula, data) {
   trials <- c(0.5, 1, 2, 5, 10, 20)
   for (th in trials) {
@@ -37,6 +37,23 @@ safe_nb <- function(formula, data) {
     }
   }
   return(NULL)
+}
+
+# filters out non-ZIP code data
+drop_aggregate_rows <- function(df, zip_col = "ZIP") {
+  df[!(df[[zip_col]] %in% c("California", "Riverside")), , drop = FALSE]
+}
+
+#Set reference ZIP code to the median
+ref_zip <- function(df, outcome_col, pop_col = "Count_Person", zip_col = "ZIP") {
+  med <- stats::median(df[[outcome_col]], na.rm = TRUE)
+  df |>
+    dplyr::mutate(.dist = abs(.data[[outcome_col]] - med)) |>
+    dplyr::slice_min(.dist, with_ties = TRUE) |>
+    dplyr::arrange(dplyr::desc(.data[[pop_col]])) |>
+    dplyr::slice(1) |>
+    dplyr::pull(.data[[zip_col]]) |>
+    as.character()
 }
 
 # ==== IRR + regression table helpers ====
@@ -108,35 +125,35 @@ summarize_irr <- function(x) {
 }
 
 # OPTIONAL: only keep this if you need ZIP-level IRRs
-# pull_zip_irrs <- function(rob_tbl, fit_model, zip_var = "ZIP") {
-#   mm <- model.frame(fit_model)
-#   if (!zip_var %in% names(mm)) {
-#     stop(paste0("Variable '", zip_var, "' not found in model frame."))
-#   }
-#   zips <- levels(mm[[zip_var]])
-#   if (is.null(zips)) {
-#     stop(paste0("Variable '", zip_var, "' is not a factor in the model."))
-#   }
-#   ref_zip <- zips[1]
-#   prefix <- paste0(zip_var)
-#   zip_rows <- rob_tbl %>%
-#     dplyr::filter(startsWith(term, prefix)) %>%
-#     dplyr::mutate(
-#       ZIP = gsub(paste0("^", prefix), "", term)
-#     )
-#   ref_row <- tibble::tibble(
-#     term      = paste0(zip_var, ref_zip, " (ref)"),
-#     estimate  = 0,
-#     std.error = NA_real_,
-#     statistic = NA_real_,
-#     p.value   = NA_real_,
-#     IRR       = 1,
-#     IRR_low   = 1,
-#     IRR_high  = 1,
-#     ZIP       = ref_zip
-#   )
-#   dplyr::bind_rows(ref_row, zip_rows)
-# }
+pull_zip_irrs <- function(rob_tbl, fit_model, zip_var = "ZIP") {
+   mm <- model.frame(fit_model)
+   if (!zip_var %in% names(mm)) {
+     stop(paste0("Variable '", zip_var, "' not found in model frame."))
+   }
+   zips <- levels(mm[[zip_var]])
+   if (is.null(zips)) {
+     stop(paste0("Variable '", zip_var, "' is not a factor in the model."))
+   }
+   ref_zip <- zips[1]
+   prefix <- paste0(zip_var)
+   zip_rows <- rob_tbl %>%
+     dplyr::filter(startsWith(term, prefix)) %>%
+     dplyr::mutate(
+       ZIP = gsub(paste0("^", prefix), "", term)
+     )
+   ref_row <- tibble::tibble(
+     term      = paste0(zip_var, ref_zip, " (ref)"),
+     estimate  = 0,
+     std.error = NA_real_,
+     statistic = NA_real_,
+     p.value   = NA_real_,
+     IRR       = 1,
+     IRR_low   = 1,
+     IRR_high  = 1,
+     ZIP       = ref_zip
+   )
+   dplyr::bind_rows(ref_row, zip_rows)
+ }
 
 # ==== Data cleaning for counts ====
 
@@ -210,6 +227,14 @@ run_ols_block <- function(outcome_df, outcome_col, out_prefix) {
   lm_step <- suppressWarnings(
     MASS::stepAIC(lm_full, direction = "both", trace = FALSE)
   )
+  
+  fix_zip_char <- function(df) {
+    stopifnot("ZIP" %in% names(df))
+    df %>% mutate(
+      ZIP = as.character(ZIP),
+      ZIP = ifelse(nchar(ZIP) < 5, stringr::str_pad(ZIP, 5, pad = "0"), ZIP)
+    )
+  }
   
   vif_tab <- tryCatch({
     v <- car::vif(lm_step)

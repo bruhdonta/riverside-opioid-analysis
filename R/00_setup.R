@@ -14,12 +14,6 @@ if (length(missing)) {
 }
 invisible(lapply(pkgs, library, character.only = TRUE))
 
-# Create folders used later (safe if they already exist)
-for (p in here::here(c("data_raw","data_raw/HPI","data_interim","data_processed",
-                       "figures","models","tables","reports"))) {
-  dir.create(p, recursive = TRUE, showWarnings = FALSE)
-}
-
 # Keep geodata cached; avoid scientific notation
 options(tigris_use_cache = TRUE, scipen = 999)
 
