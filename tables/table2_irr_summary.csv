@@ -1,4 +1,4 @@
 "Outcome","Min IRR","1st Quartile","Median","Mean","3rd Quartile","Max IRR"
-"ED visits",0,1.219,1.881,3.353,2.974,30.07
-"Hospitalizations",0,0.401,0.908,1.318,1.443,7.954
-"Overdose deaths",0.413,1.345,2.594,3.073,4.322,8.577
+"ED visits",NA,1.219,1.881,3.353,2.974,30.07
+"Hospitalizations",NA,0.588,1.436,2.096,2.36,12.644
+"Overdose deaths",0.339,1.105,2.13,2.524,3.55,7.043

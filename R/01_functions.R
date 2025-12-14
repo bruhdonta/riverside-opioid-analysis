@@ -1,8 +1,7 @@
 source("R/00_setup.R")
-# R/01_Functions.R
-
 # ==== Utility helpers ====
 
+# save_fig: Saves a ggplot object as a PNG file to the "figures" directory with specified width, height, and DPI.
 save_fig <- function(plot, filename, w = 7, h = 5, dpi = 300) {
   ggplot2::ggsave(
     filename = here::here("figures", filename),
@@ -14,12 +13,13 @@ save_fig <- function(plot, filename, w = 7, h = 5, dpi = 300) {
   )
 }
 
+# zipify: Pads ZIP codes with leading zeros to ensure they are 5 digits long (e.g., 9251 becomes 09251).
 zipify <- function(x) {
   x <- as.character(x)
   stringr::str_pad(x, width = 5, pad = "0")
 }
 
-# Try negative binomial with multiple starting thetas; return NULL if all fail;
+# safe_nb: Tries fitting a negative binomial model using multiple initial values for theta. Returns NULL if all attempts fail.
 safe_nb <- function(formula, data) {
   trials <- c(0.5, 1, 2, 5, 10, 20)
   for (th in trials) {
@@ -39,12 +39,12 @@ safe_nb <- function(formula, data) {
   return(NULL)
 }
 
-# filters out non-ZIP code data
+# drop_aggregate_rows: Filters out aggregate rows (e.g., rows with "California" or "Riverside") from the dataframe.
 drop_aggregate_rows <- function(df, zip_col = "ZIP") {
   df[!(df[[zip_col]] %in% c("California", "Riverside")), , drop = FALSE]
 }
 
-#Set reference ZIP code to the median
+# ref_zip: Sets the reference ZIP code for a model based on the ZIP with the closest estimated value for the outcome column (e.g., ED visits, hospitalizations).
 ref_zip <- function(df, outcome_col, pop_col = "Count_Person", zip_col = "ZIP") {
   med <- stats::median(df[[outcome_col]], na.rm = TRUE)
   df |>
@@ -58,6 +58,7 @@ ref_zip <- function(df, outcome_col, pop_col = "Count_Person", zip_col = "ZIP") 
 
 # ==== IRR + regression table helpers ====
 
+# robust_irr_tbl: Calculates robust standard errors and confidence intervals for Poisson regression models and returns the results in a tidy tibble.
 robust_irr_tbl <- function(fit, vcov_type = "HC0") {
   ct <- lmtest::coeftest(fit, vcov = sandwich::vcovHC(fit, type = vcov_type))
   tibble::tibble(
@@ -72,21 +73,16 @@ robust_irr_tbl <- function(fit, vcov_type = "HC0") {
   )
 }
 
+# dispersion: Calculates the dispersion parameter for a Poisson model by dividing the deviance by the residual degrees of freedom.
 dispersion <- function(fit) {
-  # Use summary() method which handles edge cases better
   sm <- summary(fit)
-  
-  # Check if we have valid deviance and df.residual
   if (!is.null(sm$deviance) && !is.null(sm$df.residual)) {
     if (is.finite(sm$deviance) && is.finite(sm$df.residual) && sm$df.residual > 0) {
       return(sm$deviance / sm$df.residual)
     }
   }
-  
-  # Fallback: manual calculation with checks
   if (is.null(fit$df.residual) || !is.finite(fit$df.residual) || fit$df.residual <= 0) {
-    warning("df.residual is invalid (", fit$df.residual, 
-            "). Model may be saturated. Returning NA.")
+    warning("df.residual is invalid (", fit$df.residual, "). Model may be saturated. Returning NA.")
     return(NA_real_)
   }
   
@@ -99,6 +95,7 @@ dispersion <- function(fit) {
   sum(dev_resid^2) / fit$df.residual
 }
 
+# qb_tbl: Generates a tidy tibble from the output of a quantile regression (using `summary(fit_qb)`), including estimates, standard errors, and IRRs.
 qb_tbl <- function(fit_qb) {
   sm <- summary(fit_qb)$coefficients
   tibble::tibble(
@@ -113,54 +110,78 @@ qb_tbl <- function(fit_qb) {
   )
 }
 
+# summarize_irr: Summarizes a vector of IRR values by calculating the minimum, quartiles, median, mean, and maximum.
 summarize_irr <- function(x) {
+  x <- x[is.finite(x) & !is.na(x)]
   tibble::tibble(
     `Min IRR`       = min(x, na.rm = TRUE),
-    `1st Quartile`  = stats::quantile(x, 0.25, na.rm = TRUE),
-    `Median`        = median(x, na.rm = TRUE),
-    `Mean`          = mean(x, na.rm = TRUE),
-    `3rd Quartile`  = stats::quantile(x, 0.75, na.rm = TRUE),
-    `Max IRR`       = max(x, na.rm = TRUE)
+    `1st Quartile`  = as.numeric(stats::quantile(x, 0.25, names = FALSE)),
+    `Median`        = stats::median(x),
+    `Mean`          = mean(x),
+    `3rd Quartile`  = as.numeric(stats::quantile(x, 0.75, names = FALSE)),
+    `Max IRR`       = max(x)
   )
 }
 
-# OPTIONAL: only keep this if you need ZIP-level IRRs
-pull_zip_irrs <- function(rob_tbl, fit_model, zip_var = "ZIP") {
-   mm <- model.frame(fit_model)
-   if (!zip_var %in% names(mm)) {
-     stop(paste0("Variable '", zip_var, "' not found in model frame."))
-   }
-   zips <- levels(mm[[zip_var]])
-   if (is.null(zips)) {
-     stop(paste0("Variable '", zip_var, "' is not a factor in the model."))
-   }
-   ref_zip <- zips[1]
-   prefix <- paste0(zip_var)
-   zip_rows <- rob_tbl %>%
-     dplyr::filter(startsWith(term, prefix)) %>%
-     dplyr::mutate(
-       ZIP = gsub(paste0("^", prefix), "", term)
-     )
-   ref_row <- tibble::tibble(
-     term      = paste0(zip_var, ref_zip, " (ref)"),
-     estimate  = 0,
-     std.error = NA_real_,
-     statistic = NA_real_,
-     p.value   = NA_real_,
-     IRR       = 1,
-     IRR_low   = 1,
-     IRR_high  = 1,
-     ZIP       = ref_zip
-   )
-   dplyr::bind_rows(ref_row, zip_rows)
- }
+# pull_zip_irrs: Pulls incidence rate ratios (IRRs) for each ZIP code from a Poisson regression model, calculates 95% confidence intervals, and adds a reference ZIP.
+pull_zip_irrs <- function(fit_model, zip_var = "ZIP", conf_level = 0.95) {
+  if (!inherits(fit_model, "glm")) {
+    stop("fit_model must be a fitted glm object.")
+  }
+  
+  mm <- model.frame(fit_model)
+  if (!zip_var %in% names(mm)) {
+    stop(paste0("Variable '", zip_var, "' not found in model frame."))
+  }
+  
+  z <- mm[[zip_var]]
+  if (!is.factor(z)) {
+    stop(paste0("Variable '", zip_var, "' must be a factor in the model (use factor()+relevel())."))
+  }
+  ref_zip <- levels(z)[1]
+  
+  sm <- summary(fit_model)$coefficients
+  sm <- as.data.frame(sm)
+  sm$term <- rownames(sm)
+  
+  prefix <- paste0("^", zip_var)
+  zip_rows <- sm[grepl(prefix, sm$term), , drop = FALSE]
+  
+  alpha <- 1 - conf_level
+  zcrit <- stats::qnorm(1 - alpha/2)
+  
+  out <- dplyr::tibble(
+    term      = zip_rows$term,
+    estimate  = zip_rows$Estimate,
+    std.error = zip_rows$`Std. Error`,
+    statistic = zip_rows$`z value`,
+    p.value   = zip_rows$`Pr(>|z|)`,
+    IRR       = exp(zip_rows$Estimate),
+    IRR_low   = exp(zip_rows$Estimate - zcrit * zip_rows$`Std. Error`),
+    IRR_high  = exp(zip_rows$Estimate + zcrit * zip_rows$`Std. Error`),
+    ZIP       = sub(prefix, "", zip_rows$term)
+  )
+  
+  ref_row <- dplyr::tibble(
+    term      = paste0(zip_var, ref_zip, " (ref)"),
+    estimate  = 0,
+    std.error = NA_real_,
+    statistic = NA_real_,
+    p.value   = NA_real_,
+    IRR       = 1,
+    IRR_low   = 1,
+    IRR_high  = 1,
+    ZIP       = ref_zip
+  )
+  
+  dplyr::bind_rows(ref_row, out) %>%
+    dplyr::mutate(ZIP = as.character(ZIP)) %>%
+    dplyr::arrange(desc(IRR))
+}
 
 # ==== Data cleaning for counts ====
 
-# Drop bad rows but KEEP zero counts
-# zip_col, count_col, pop_col are column names (zip_col & pop_col as strings)
-# Clean data for Poisson / NB GLM: drop non-ZIP rows, coerce to numeric, keep zeros
-
+# clean_counts: Cleans and filters data for Poisson / Negative Binomial GLMs: removes non-ZIP rows, coerces count and population columns to numeric, and keeps zeros.
 clean_counts <- function(df, count_col, pop_col = "Count_Person", zip_col = "ZIP") {
   df %>%
     dplyr::filter(!.data[[zip_col]] %in% c("California", "Riverside")) %>%
@@ -182,6 +203,7 @@ clean_counts <- function(df, count_col, pop_col = "Count_Person", zip_col = "ZIP
 
 # ==== Read HPI-style indicators ====
 
+# read_indicator: Reads HPI-style indicators (e.g., socioeconomic factors) from a CSV file, renames columns, and ensures ZIP codes are 5 digits long.
 read_indicator <- function(filename, varname) {
   path <- file.path(base_dir, filename)
   if (!file.exists(path)) stop(paste0("Missing file: ", path))
@@ -201,6 +223,7 @@ read_indicator <- function(filename, varname) {
 
 # ==== OLS block for HPI predictors ====
 
+# run_ols_block: Runs an OLS regression model with HPI predictors for a given outcome, scales the predictors, and outputs coefficients and VIF.
 run_ols_block <- function(outcome_df, outcome_col, out_prefix) {
   merged <- outcome_df %>%
     dplyr::left_join(hpi, by = "ZIP") %>%
