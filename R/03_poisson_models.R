@@ -1,5 +1,5 @@
 # ==== Setup ====
-source("R/02_data_prep.R")
+source(here::here("R", "02_data_prep.R"))
 
 library(dplyr)
 library(tibble)

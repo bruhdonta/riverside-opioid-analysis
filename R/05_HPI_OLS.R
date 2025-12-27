@@ -1,4 +1,4 @@
-source("R/04_Normalized_Severity_Scores.R")
+source(here::here("R", "04_Normalized_Severity_Scores.R"))
 library(dplyr)
 library(tidyr)
 library(stringr)
@@ -23,6 +23,7 @@ transportation      <- read_indicator("transportation.csv",             "transpo
 bachelorsed         <- read_indicator("bachelorsed.csv",                "bachelorsed")
 percapita_income    <- read_indicator("percapitaincome.csv",            "percapita_income")
 employed            <- read_indicator("employed.csv",                   "employed")
+hpi_score           <- read_indicator("hpiscore.csv",                   "hpi_score")
 
 hpi <- housing_domain %>%
   left_join(healthcare_access,   by = "ZIP") %>%

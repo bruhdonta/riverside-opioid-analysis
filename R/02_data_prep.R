@@ -1,4 +1,5 @@
-source("R/01_functions.R")
+source(here::here("R", "01_functions.R"))
+
 
 
 # R/01_data_prep.R
@@ -120,46 +121,6 @@ saveRDS(riv_hosp_data_clean, here::here("data_interim","riv_hosp_data_clean.rds"
 ed    <- readRDS(here::here("data_interim","riv_ed_data_clean.rds"))
 hosp  <- readRDS(here::here("data_interim","riv_hosp_data_clean.rds"))
 death <- readRDS(here::here("data_interim","riv_death_data_clean.rds"))
-
-# Totals (A, B, C) and grand total X
-A_ed    <- sum(ed$Emergency_Department_Visits, na.rm = TRUE)
-B_hosp  <- sum(hosp$Opioid_Overdose_Hospitalizations, na.rm = TRUE)
-C_death <- sum(death$Opioid_Overdose_Deaths, na.rm = TRUE)
-X_total <- A_ed + B_hosp + C_death
-
-# county population total (use one source to avoid double-counting)
-county_pop <- sum(ed$Count_Person, na.rm = TRUE)
-
-# Build a one-row table
-tbl_overall <- tibble::tibble(
-  `Total opioid-related incidents` = X_total,
-  `ED visits`                      = A_ed,
-  `Hospitalizations`               = B_hosp,
-  `Overdose deaths`                = C_death
-  # If you want to show population or per-100k totals, uncomment below:
-  # `County population`                  = county_pop,
-  # `Incidents per 100k`                 = 1e5 * X_total / county_pop
-)
-
-# Save a clean CSV (journal friendly)
-fs::dir_create(here::here("tables"))
-readr::write_csv(tbl_overall, here::here("tables","table1_overall_totals.csv"))
-
-#Creating table with gt package
-gt_overall <- tbl_overall %>%
-  mutate(dplyr::across(everything(), scales::comma)) %>%
-  gt() %>%
-  tab_header(
-    title = md("**Table 1. Overall Opioid-Related Incidents, Riverside County (2023)**")
-  ) %>%
-  tab_source_note(md("Counts are estimated from age-adjusted rates × ZIP population; aggregate rows excluded."))
-
-# Export as PNG 
-gtsave(gt_overall, here::here("tables","table1_overall_totals.png"))
-
-
-
-
 
 message("Saved:",
         "\n  data_interim/riv_ed_data_clean.rds",

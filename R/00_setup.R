@@ -2,7 +2,7 @@
 set.seed(69)
 pkgs <- c(
   "here","dplyr","readr","ggplot2","broom","car","MASS","stringr",
-  "forcats","leaflet","sf","tigris","RColorBrewer","htmlwidgets","flextable","gt","mapview","webshot2"
+  "forcats","leaflet","sf","tigris","RColorBrewer","htmlwidgets","flextable","gt","mapview","webshot2", "gtsummary"
 )
 
 

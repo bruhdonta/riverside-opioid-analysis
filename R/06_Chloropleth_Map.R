@@ -1,34 +1,36 @@
-source("R/04_Normalized_Severity_Scores.R")
-
+source(here::here("R", "04_Normalized_Severity_Scores.R"))
 library(leaflet)
 library(sf)
 library(dplyr)
 library(tigris)
 library(RColorBrewer)
 library(htmltools)
+library(stringr)
 
 options(tigris_use_cache = TRUE)
 
-# Ensure ZIPs are 5-character strings (important for joining)
+# --- ZIP cleanup (critical) ---
 severity_by_zip <- severity_by_zip %>%
-  mutate(ZIP = as.character(ZIP))
+  mutate(
+    ZIP = as.character(ZIP),
+    ZIP = gsub("^ZIP", "", ZIP),
+    ZIP = str_pad(ZIP, 5, pad = "0")
+  )
 
-# Pull ZCTAs (this is large; caching helps)
-zip_shapes <- tigris::zctas(year = 2020) %>%
-  st_transform(crs = 4326)
+zip_shapes <- tigris::zctas(year = 2024) %>%
+  st_transform(crs = 4326) %>%
+  mutate(ZCTA5CE20 = as.character(ZCTA5CE20))
 
-# Keep only the ZCTAs present in your severity table
 riverside_zips <- zip_shapes %>%
   filter(ZCTA5CE20 %in% severity_by_zip$ZIP)
 
-# Join geometry + severity
-map_data <- left_join(
-  riverside_zips,
-  severity_by_zip,
-  by = c("ZCTA5CE20" = "ZIP")
-)
+map_data <- left_join(riverside_zips, severity_by_zip, by = c("ZCTA5CE20" = "ZIP"))
 
-# Binned palette is easier to read in print
+cat("Rows severity_by_zip:", nrow(severity_by_zip), "\n")
+cat("Rows riverside_zips:", nrow(riverside_zips), "\n")
+cat("Rows map_data:", nrow(map_data), "\n")
+cat("Non-NA Normalized_Severity:", sum(!is.na(map_data$Normalized_Severity)), "\n")
+
 pal <- colorBin(
   palette = brewer.pal(9, "YlOrRd"),
   domain  = map_data$Normalized_Severity,
@@ -45,18 +47,11 @@ opioid_map <- leaflet(map_data) %>%
     color = "white",
     fillOpacity = 0.75,
     label = ~lapply(
-      paste0(
-        "ZIP: ", ZCTA5CE20,
-        "<br>Normalized severity: ",
-        ifelse(is.na(Normalized_Severity), "NA", round(Normalized_Severity, 3))
-      ),
+      paste0("ZIP: ", ZCTA5CE20, "<br>Normalized severity: ",
+             ifelse(is.na(Normalized_Severity), "NA", round(Normalized_Severity, 3))),
       HTML
     ),
-    highlightOptions = highlightOptions(
-      weight = 2,
-      color = "#444444",
-      bringToFront = TRUE
-    )
+    highlightOptions = highlightOptions(weight = 2, color = "#444444", bringToFront = TRUE)
   ) %>%
   addLegend(
     position = "bottomright",
@@ -68,22 +63,12 @@ opioid_map <- leaflet(map_data) %>%
   addControl(
     html = "<strong>Opioid Severity by ZIP Code (Riverside County)</strong>",
     position = "topright"
-  ) %>%
-  fitBounds(
-    lng1 = st_bbox(map_data)$xmin,
-    lat1 = st_bbox(map_data)$ymin,
-    lng2 = st_bbox(map_data)$xmax,
-    lat2 = st_bbox(map_data)$ymax
   )
 
-# Exports static PNG for manuscript
-# IMPORTANT NOTE: mapshot may require webshot2 and Chrome/Chromium installed.
+# Export (more reliable)
 if (!dir.exists("figures")) dir.create("figures", recursive = TRUE)
-
-mapview::mapshot(
-  opioid_map,
-  file = "figures/Figure_Opioid_Severity_Map.png",
-  vwidth = 1600,
-  vheight = 1200,
-  delay = 1
-)
+htmlwidgets::saveWidget(opioid_map, "figures/opioid_map.html", selfcontained = FALSE)
+webshot2::webshot("figures/opioid_map.html", "figures/Figure_Opioid_Severity_Map.png",
+                  vwidth = 1600, vheight = 1200, delay = 3)
+opioid_map
+cat("=== Map Printed ===")
